@@ -24,6 +24,10 @@ const offer = require("./routes/offer.js");
 app.use(user);
 app.use(offer);
 
+app.get("/", (req, res) => {
+  res.json("🚀 Server *ON* 🚀");
+});
+
 app.listen(process.env.PORT, () => {
   console.log("🚀 Server started 🚀");
 });
