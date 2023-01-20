@@ -47,7 +47,7 @@ router.post(
         convertToBase64(req.files.picture),
         { folder: `/vinted/offer/${newOffer._id}` }
       );
-      newOffer.product_image = uploadedImage;
+      newOffer.product_images.push(uploadedImage);
       await newOffer.save();
       res
         .status(200)
@@ -107,8 +107,9 @@ router.delete("/offer/delete", isAuthenticated, async (req, res) => {
   try {
     const offerToDelete = await Offer.findById(req.body.id);
     console.log(offerToDelete);
+    await cloudinary.api.delete_resources_by_prefix(`/offer/${req.body.id}/`)
     //await cloudinary.uploader.destroy(offerToDelete.product_image.public_id);
-    await cloudinary.api.delete_folder(`offer/${req.body.id}`);
+    //await cloudinary.api.delete_folder(`offer/${req.body.id}`);
     res.status(200).json({ message: "Offer correctly deleted" });
   } catch (error) {
     res.status(400).json({ error: error.message });
