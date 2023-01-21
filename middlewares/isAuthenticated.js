@@ -1,13 +1,18 @@
-//? Check if the token received is existing in the database
+//* Models import
 const User = require("../models/User");
 
 const isAuthenticated = async (req, res, next) => {
   try {
-    const tokenReceived = req.headers.authorization.replace("Bearer ", "");
-    //console.log("Token received ", tokenReceived);
+    // No token found in the request
+    if (!req.headers.authorization) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
-    const userAuthenticated = await User.findOne({ token: tokenReceived });
-    //console.log("User authentificated ", userAuthenticated.email);
+    const tokenReceived = req.headers.authorization.replace("Bearer ", "");
+
+    const userAuthenticated = await User.findOne({
+      token: tokenReceived,
+    }).select("account _id");
 
     if (!userAuthenticated) {
       return res.status(401).json({

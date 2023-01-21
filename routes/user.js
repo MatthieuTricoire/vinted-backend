@@ -1,48 +1,57 @@
+//* Express package
 const express = require("express");
 const router = express.Router();
-const User = require("../models/User");
+
+//* Encryption packages
 const uid2 = require("uid2");
 const SHA256 = require("crypto-js/sha256");
 const encBase64 = require("crypto-js/enc-base64");
+
+//* Cloudrinary package
 const cloudinary = require("cloudinary").v2;
+
+//* FileUpload package
 const fileUpload = require("express-fileupload");
 
-//? Create a new user account if email is undefined
+//* Utils import
+const convertToBase64 = require("../utils/convertToBase64");
+
+//* Models import
+const User = require("../models/User");
+const Offer = require("../models/Offer");
+
+//*              SIGNUP ROUTE
+//* -----------------------------------------
+
 router.post("/user/signup", fileUpload(), async (req, res) => {
   try {
-    const { username, email, password, newsletter } = req.body;
     const userExists = await User.exists({ email });
-    if (userExists) {
-      return res.status(409).json({ error: "This user is already existing." });
-    }
 
-    if (
-      !username ||
-      !email ||
-      !password ||
-      (newsletter !== "0" && newsletter !== "1")
-    ) {
+    // User exists in the database
+    if (userExists)
+      return res.status(409).json({ error: "This user already exists" });
+
+    const { username, email, password, newsletter } = req.body;
+
+    // Missing required parameters
+    if (!username || !email || !password) {
       return res.status(400).json({
         error:
           "Some required parameters are not available to create a new account.",
       });
     }
-    let newsletterBoolean = false;
-    newsletterBoolean = newsletter === 1 ? true : false;
-    console.log(newsletterBoolean);
-    //? Token creation
-    const token = uid2(64);
-    console.log(("Token : ", token));
-    //? Salt creation
-    const salt = uid2(16);
 
-    //? Concatenate the password to salt and hash them
+    // Token creation
+    const token = uid2(64);
+    // Salt creation
+    const salt = uid2(16);
+    // Hash creation
     const hash = SHA256(password + salt).toString(encBase64);
-    console.log("Hash : ", hash);
-    //? Create the new user with the hash and the salt value
+
+    // Create the new user
     const newUser = new User({
       email,
-      newsletter: newsletterBoolean,
+      newsletter,
       hash,
       salt,
       token,
@@ -50,55 +59,50 @@ router.post("/user/signup", fileUpload(), async (req, res) => {
         username,
       },
     });
-    const newUserId = newUser._id;
-    console.log("ID user after creation in the model", newUserId);
 
-    //? Manage avatar image
-    //* Convert the image file into a string
-    const convertToBase64 = (file) => {
-      return `data:${file.mimetype};base64,${file.data.toString("base64")}`;
-    };
-    const upLoadedImage = await cloudinary.uploader.upload(
-      convertToBase64(req.files.picture),
-      { folder: `/vinted/user/${newUserId}/avatar` }
-    );
-
+    // Manage avatar image
+    if (req.files.avatar) {
+      const upLoadedImage = await cloudinary.uploader.upload(
+        convertToBase64(req.files.picture),
+        { folder: `/vinted/user/${newUser._id}/avatar`, public_id: "avatar" }
+      );
+    }
     newUser.account.avatar = upLoadedImage;
-    console.log("new user full info : ", newUser);
+
+    // Save the new user and return this user as object.
     await newUser.save();
-    res
-      .status(200)
-      .json({ message: `The user : ${username} has been correctly created.` });
+    res.status(200).json({
+      _id: newUser._id,
+      email: newUser.email,
+      token: newUser.token,
+      account: newUser.account,
+    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
 });
 
-//?Login d'un utilisateur
-//?----------------------
+//*              LOGIN ROUTE
+//* -----------------------------------------
 
 router.post("/user/login", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const user = await User.findOne({ email: email });
 
-    const userInfo = await User.findOne({ email: email });
-    if (!userInfo) {
-      return res.status(401).json({ error: "Unauthorized" });
+    // User exists in the database
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
     }
-    //console.log(userInfo);
-    const salt = userInfo.salt;
 
-    const hash = userInfo.hash;
+    const { email, password } = req.body;
 
     const passwordCheck = SHA256(password + salt).toString(encBase64);
 
-    if (passwordCheck === userInfo.hash) {
+    if (passwordCheck === user.hash) {
       res.status(200).json({
-        _id: userInfo._id,
-        token: userInfo.token,
-        account: {
-          username: userInfo.account.username,
-        },
+        _id: user._id,
+        token: user.token,
+        account: user.account,
       });
     } else {
       res.status(404).json({ error: "Unauthorized" });

@@ -1,15 +1,15 @@
 const mongoose = require("mongoose");
 
 const User = mongoose.model("User", {
-  email: String,
+  email: { type: String, unique: true },
   account: {
-    username: String,
-    avatar: Object, // nous verrons plus tard comment uploader une image
+    username: { type: String, required: true },
+    avatar: Object,
   },
-  newsletter: Boolean,
-  token: String,
-  hash: String,
-  salt: String,
+  newsletter: { type: Boolean, default: false },
+  token: { type: String, unique: true },
+  hash: { type: String, unique: true },
+  salt: { type: String, unique: true },
 });
 
 module.exports = User;

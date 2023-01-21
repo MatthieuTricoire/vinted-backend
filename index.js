@@ -1,17 +1,24 @@
 require("dotenv").config();
+const cors = require("cors");
+
 const express = require("express");
 const app = express();
-const cors = require("cors")
-app.use(express.json());
-app.use(cors());
 
 const mongoose = require("mongoose");
-mongoose.set("strictQuery", false);
-mongoose.connect(process.env.MONGODB_URI);
 
 const fileUpload = require("express-fileupload");
 
 const cloudinary = require("cloudinary").v2;
+
+const user = require("./routes/user.js");
+const offer = require("./routes/offer.js");
+
+app.use(express.json());
+app.use(cors());
+
+mongoose.set("strictQuery", false);
+mongoose.connect(process.env.MONGODB_URI);
+
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
   api_key: process.env.API_KEY,
@@ -19,8 +26,6 @@ cloudinary.config({
   secure: true,
 });
 
-const user = require("./routes/user.js");
-const offer = require("./routes/offer.js");
 app.use(user);
 app.use(offer);
 
