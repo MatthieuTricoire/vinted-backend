@@ -6,8 +6,6 @@ const app = express();
 
 const mongoose = require("mongoose");
 
-const fileUpload = require("express-fileupload");
-
 const cloudinary = require("cloudinary").v2;
 
 const user = require("./routes/user.js");

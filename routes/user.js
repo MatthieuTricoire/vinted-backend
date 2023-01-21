@@ -15,6 +15,7 @@ const fileUpload = require("express-fileupload");
 
 //* Utils import
 const convertToBase64 = require("../utils/convertToBase64");
+const checkToken = require("../middlewares/tokenValid");
 
 //* Models import
 const User = require("../models/User");
@@ -25,7 +26,7 @@ const Offer = require("../models/Offer");
 
 router.post("/user/signup", fileUpload(), async (req, res) => {
   try {
-    const userExists = await User.exists({ email });
+    const userExists = await User.exists({ email: req.body.email });
 
     // User exists in the database
     if (userExists)
@@ -61,16 +62,17 @@ router.post("/user/signup", fileUpload(), async (req, res) => {
     });
 
     // Manage avatar image
-    if (req.files.avatar) {
-      const upLoadedImage = await cloudinary.uploader.upload(
+    if (req.files?.picture) {
+      const avatarImg = await cloudinary.uploader.upload(
         convertToBase64(req.files.picture),
         { folder: `/vinted/user/${newUser._id}/avatar`, public_id: "avatar" }
       );
+      newUser.account.avatar = avatarImg;
     }
-    newUser.account.avatar = upLoadedImage;
 
     // Save the new user and return this user as object.
     await newUser.save();
+
     res.status(200).json({
       _id: newUser._id,
       email: newUser.email,
@@ -87,7 +89,7 @@ router.post("/user/signup", fileUpload(), async (req, res) => {
 
 router.post("/user/login", async (req, res) => {
   try {
-    const user = await User.findOne({ email: email });
+    const user = await User.findOne({ email: req.body.email });
 
     // User exists in the database
     if (!user) {
@@ -96,7 +98,7 @@ router.post("/user/login", async (req, res) => {
 
     const { email, password } = req.body;
 
-    const passwordCheck = SHA256(password + salt).toString(encBase64);
+    const passwordCheck = SHA256(password + user.salt).toString(encBase64);
 
     if (passwordCheck === user.hash) {
       res.status(200).json({

@@ -12,7 +12,7 @@ const isAuthenticated = async (req, res, next) => {
 
     const userAuthenticated = await User.findOne({
       token: tokenReceived,
-    }).select("account _id");
+    }).select("account _id token");
 
     if (!userAuthenticated) {
       return res.status(401).json({

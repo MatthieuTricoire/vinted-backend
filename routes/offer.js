@@ -11,6 +11,7 @@ const fileUpload = require("express-fileupload");
 //* Middlewares import
 const isAuthenticated = require("../middlewares/isAuthenticated");
 const respectLength = require("../middlewares/respectLength");
+const tokenValid = require("../middlewares/tokenValid");
 
 //* Utils import
 const convertToBase64 = require("../utils/convertToBase64");
@@ -18,7 +19,6 @@ const convertToBase64 = require("../utils/convertToBase64");
 //* Models import
 const Offer = require("../models/Offer");
 const User = require("../models/User");
-const { countDocuments } = require("../models/User");
 
 //*              NEW OFFER ROUTE
 //* -----------------------------------------
@@ -26,8 +26,8 @@ const { countDocuments } = require("../models/User");
 router.post(
   "/offer/publish",
   isAuthenticated,
-  respectLength,
   fileUpload(),
+  respectLength,
   async (req, res) => {
     try {
       const { title, description, price, condition, city, brand, size, color } =
@@ -100,44 +100,48 @@ router.post(
 //* -----------------------------------------
 
 router.put(
-  "/offer/update:id",
+  "/offer/update",
   isAuthenticated,
   fileUpload(),
+  tokenValid,
+  respectLength,
   async (req, res) => {
     try {
-      const offerToUpdate = await Offer.findById(req.params.id);
+      let offerToUpdate = await Offer.findById(req.body.id);
 
       // Received information update, excepted image
-      if (req.body.title) offerToUpdate = req.body.title;
+      if (req.body.title) offerToUpdate.product_name = req.body.title;
 
-      if (req.body.price) offerToUpdate = req.body.price;
+      if (req.body.price) offerToUpdate.price = req.body.price;
 
-      if (req.body.description) offerToUpdate = req.body.description;
+      if (req.body.description)
+        offerToUpdate.product_description = req.body.description;
 
-      const details = offerToUpdate.product_details;
-      for (const object of details) {
-        if (object.brand) {
+      let details = offerToUpdate.product_details;
+
+      for (let i = 0; i < details.length; i++) {
+        if (details[i].brand) {
           if (req.body.brand) {
-            object.brand = req.body.brand;
+            details[i].brand = req.body.brand;
           }
-          if (object.size) {
+          if (details[i].size) {
             if (req.body.size) {
-              object.size = req.body.size;
+              details[i].size = req.body.size;
             }
           }
-          if (object.color) {
+          if (details[i].color) {
             if (req.body.color) {
-              object.color = req.body.color;
+              details[i].color = req.body.color;
             }
           }
-          if (object.city) {
+          if (details[i].city) {
             if (req.body.city) {
-              object.city = req.body.city;
+              details[i].city = req.body.city;
             }
           }
-          if (object.condition) {
+          if (details[i].condition) {
             if (req.body.condition) {
-              object.condition = req.body.condition;
+              details[i].condition = req.body.condition;
             }
           }
         }
@@ -148,7 +152,7 @@ router.put(
       // Received image update
       const uploadedImage = await cloudinary.uploader.upload(
         convertToBase64(req.files.picture, {
-          folder: `/vinted/offer/${newOffer._id}`,
+          folder: `/vinted/offer/${offerToUpdate._id}`,
           public_id: "preview",
         })
       );
@@ -167,23 +171,37 @@ router.put(
 //*              DELETE OFFER ROUTE
 //* -----------------------------------------
 
-router.delete("/offer/delete:id", isAuthenticated, async (req, res) => {
-  try {
-    // Delete all images in the offer folder
-    await cloudinary.api.delete_resources_by_prefix(
-      `/vinted/offer/${req.params.id}`
-    );
+router.delete(
+  "/offer/delete",
+  isAuthenticated,
+  tokenValid,
+  async (req, res) => {
+    try {
+      // //test
+      // const offerToDelete = await Offer.findById(req.body.id).populate(
+      //   "owner",
+      //   "token"
+      // );
+      // if (req.user.token !== offerToDelete.owner.token) {
+      //   return res.status(401).json({ message: "Unauthorized" });
+      // }
 
-    // Delete empty folder
-    await cloudinary.api.delete_folder(`/vinted/offer/${req.params.id}`);
+      // Delete all images in the offer folder
+      await cloudinary.api.delete_resources_by_prefix(
+        `vinted/offer/${req.body.id}`
+      );
 
-    // Delete offer in MongoDB
-    await Offer.findByIdAndDelete(req.params.id);
-    res.status(200).json({ message: "Offer deleted 🚮 ✅" });
-  } catch (error) {
-    res.status(400).json({ error: error.message });
+      // Delete empty folder
+      await cloudinary.api.delete_folder(`vinted/offer/${req.body.id}`);
+
+      // Delete offer in MongoDB
+      await Offer.findByIdAndDelete(req.body.id);
+      res.status(200).json({ message: "Offer deleted 🚮 ✅" });
+    } catch (error) {
+      res.status(400).json({ error: error.message });
+    }
   }
-});
+);
 
 //*              FILTER OFFERS ROUTE
 //* -----------------------------------------
@@ -239,7 +257,7 @@ router.get("/offers", async (req, res) => {
       .limit(limit);
 
     // Offers number
-    const countOffer = await countDocuments(filter);
+    const countOffer = await Offer.countDocuments(filter);
 
     res.status(200).json({
       count: countOffer,
